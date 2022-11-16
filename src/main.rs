@@ -8,6 +8,11 @@ mod player;
 mod raycast;
 mod display;
 
+/* 
+    Simple raycast graphics built from Lode's Computer Graphics Tutorial
+    https://lodev.org/cgtutor/raycasting.html
+*/
+
 fn conf() -> Conf {
     Conf {
         window_title: String::from("Raycast"),
@@ -33,14 +38,13 @@ async fn main() {
         /* 
             Drawing textured floors is super slow.
             I did have a super cool fast method using from_rgba8, but as the drop implementation for the texture
-            doesn't deallocate memory, it crashes. Will fix later, slow method for now.
+            doesn't deallocate memory, it crashes. Will fix later, using slow method for now.
         */
         player.draw_floor();    
         player.draw_sprites();
         player.raycast();   // Walls are drawn here
         player.movement();  // Get player input
         player.display.draw_ui();
-
         next_frame().await
     }
 }

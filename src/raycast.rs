@@ -2,7 +2,9 @@ pub mod raycast {
     use macroquad::prelude::*;
     use crate::player::player::Player;
 
-    /* Raycast logic */
+    /* 
+        Raycast stuff 
+    */
 
     pub struct Ray {
         pub camera: f32,  
@@ -18,7 +20,7 @@ pub mod raycast {
 
     impl Ray {
         pub fn new(x: f32, player: &mut Player) -> Ray {     
-            let camera: f32 = 2.0 * x / player.width - 1.0; 
+            let camera: f32 = 2.0 * x / player.display.width - 1.0; 
             let ray_dir: Vec2 = vec2(player.dir.x + player.plane.x * camera, player.dir.y + player.plane.y * camera);
             let map: (i32, i32) = (player.pos.x as i32, player.pos.y as i32); 
             let mut side_dist: Vec2 = vec2(0.0, 0.0);

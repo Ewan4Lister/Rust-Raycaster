@@ -1,12 +1,10 @@
 pub mod world {
     use macroquad::prelude::*;
-
     pub struct Sprite {
         pub x: f32,
         pub y: f32,
         pub texture: u32,
     }
-
     pub struct Texture {
         pub texture: Texture2D,
         pub texture_data: Vec<Color>,
@@ -30,9 +28,6 @@ pub mod world {
         pub map: Vec<u32>,
         pub textures: Vec<Texture>,
         pub sprite_map: Vec<Sprite>,
-        pub shadows: bool,
-        pub dark_shading: bool, 
-        pub shading_multiplier: f32, 
         columns: usize,
     }
 
@@ -89,9 +84,6 @@ pub mod world {
                 columns: 24,
                 textures: textures,
                 sprite_map: sprite_map, 
-                shadows: true,
-                dark_shading: false,
-                shading_multiplier: 2.0,
             }
         }
         
@@ -103,8 +95,8 @@ pub mod world {
             self.textures[(self.get(map.0, map.1) - 1) as usize].texture
         }
 
-        pub fn floor_shading(&self, mut color: Color, height: i32, dist: i32, multiplier: f32) -> Color {
-            if self.dark_shading { 
+        pub fn floor_shading(&self, mut color: Color, height: i32, dist: i32, multiplier: f32, dark_shading: bool) -> Color {
+            if dark_shading { 
                 color.r /= (height - dist) as f32 * multiplier;
                 color.g /= (height - dist) as f32 * multiplier;
                 color.b /= (height - dist) as f32 * multiplier;
@@ -113,16 +105,16 @@ pub mod world {
             color
         }
 
-        pub fn wall_shading(&self, side: bool, dist: f32) -> Color {
+        pub fn wall_shading(&self, side: bool, dist: f32, shadows: bool, dark_shading: bool, shading_multiplier: f32) -> Color {
             let mut color: Color = WHITE;
 
-            if self.dark_shading { 
-                color.r /= dist * self.shading_multiplier; 
-                color.g /= dist * self.shading_multiplier; 
-                color.b /= dist * self.shading_multiplier;
+            if dark_shading { 
+                color.r /= dist * shading_multiplier; 
+                color.g /= dist * shading_multiplier; 
+                color.b /= dist * shading_multiplier;
             }
             
-            if self.shadows { 
+            if shadows { 
                 if side { color.r /= 1.5; color.g /= 1.5; color.b /= 1.5; } 
             }
 
@@ -130,8 +122,3 @@ pub mod world {
         }
     }
 }
-
-
-
-
-

@@ -2,80 +2,126 @@ pub mod display {
     use macroquad::prelude::*;
     use crate::player::player::Player;
     use crate::raycast::raycast::Ray;
+    use macroquad::ui::{
+        hash, root_ui,
+        widgets::{self, Group},
+        Drag, Ui,
+    };
 
     /* 
+        Display settings, UI and Shaders
+
+        Todo add UI dropdown to change resolutions
         256×224     //  PSX
-        640 x 480   // 	480p
+        640x480     // 	480p
         1280x720    //  720p
         1920x1080   //  1080p
     */
-
     pub struct Display {
         pub render_target: RenderTarget,
-        pub material: Material,
+        pub CRT_material: Material,
         pub camera: Camera2D,
         pub width: f32,
         pub height: f32,
         pub half: f32,
+        // Settings
+        pub settings: bool, 
+        pub shaders: bool,   
+        pub nightvision: bool,   
+        pub fast_floors: bool,
+        pub shadows: bool,
+        pub dark_shading: bool, 
+        pub wall_shading_multiplier: f32, 
+        pub floor_shading_multiplier: f32, 
+        pub ceil_shading_multiplier: f32, 
     }
 
     impl Display {
         pub fn new() -> Display {
-            let render_target = render_target(256, 224); 
-            let material = load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
+            let render_target = render_target(640, 480); 
+            let CRT_material = load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
+            
             let mut camera = Camera2D::from_display_rect(Rect::new(0., 0., screen_width(), screen_height()));
             camera.render_target = Some(render_target);
 
             Display { 
                 render_target: render_target, 
-                material: material,
+                CRT_material: CRT_material,
                 camera: camera,
                 width: screen_width(),
                 height: screen_height(),
                 half: screen_height() / 2.0,
+
+                settings: false,
+                shaders: false,
+                nightvision: false,
+                fast_floors: false,
+                shadows: true,
+                dark_shading: false,
+                wall_shading_multiplier: 2.0,
+                floor_shading_multiplier: 0.08,
+                ceil_shading_multiplier: 0.1,
             }
         }
 
-        pub fn draw_walls(&mut self, player: &Player, ray: Ray, x: f32) {
-            let c: Color = if player.nightvision { GREEN } else { player.world.wall_shading(ray.side, ray.perp_wall_dist) };
-            let t: Texture2D = player.world.texture(ray.map);
-        
-            let line_height: f32 = player.height / ray.perp_wall_dist;
-            let  draw_start: f32 = -line_height / 2.0 + player.height / 2.0;
-
-            let mut wall_x: f32;
-            if !ray.side { wall_x = player.pos.y + ray.perp_wall_dist * ray.ray_dir.y; }
-            else         { wall_x = player.pos.x + ray.perp_wall_dist * ray.ray_dir.x; }
-            wall_x -= wall_x.floor();
-
-            let mut tex_x: u32 = (wall_x * t.height()) as u32;
-            if !ray.side && ray.ray_dir.x > 0.0 { tex_x = t.height() as u32 - tex_x - 1}
-            if  ray.side && ray.ray_dir.y < 0.0 { tex_x = t.height() as u32 - tex_x - 1}  
-
-            draw_texture_ex(
-                t,
-                x as f32,
-                draw_start as f32,
-                c,
-                DrawTextureParams {
-                    dest_size: Some(vec2(1.0, line_height as f32)), 
-                    source: Some(Rect::new(tex_x as f32, 0.0, 1.0, t.height())), // Part of texture to draw
-                    ..Default::default()
-                }
-            );
-        }
-
         pub fn draw_ui(&mut self) {
-            draw_text(
-                format!("{} FPS", get_fps()).as_str(),
-                10.0,
-                66.0,
-                25.0,
-                GREEN,
-            );
+            if self.settings {
+                draw_text(
+                    format!("{} FPS", get_fps()).as_str(),
+                    10.0,
+                    66.0,
+                    25.0,
+                    GREEN,
+                );
 
+                widgets::Window::new(hash!(), vec2(20., 70.), vec2(300., 300.))
+                    .label("Settings")
+                    .ui(&mut *root_ui(), |ui| {
+                        ui.tree_node(hash!(), "Textures", |ui| {
+                            if ui.button(None, "Shaders") {
+                                self.shaders = !self.shaders;
+                            }
+                            ui.separator();
+
+                            if ui.button(None, "Nightvision") {
+                                self.nightvision = !self.nightvision;
+                            }
+                            ui.separator();
+
+                            if ui.button(None, "Textured Floors") {
+                                self.fast_floors = !self.fast_floors;
+                            }
+                            ui.separator();
+
+                            if ui.button(None, "Shadows") {
+                                self.shadows = !self.shadows;
+                            }
+                            ui.separator();
+                            
+                            if ui.button(None, "Darkness Shading") {
+                                self.dark_shading = !self.dark_shading;
+                            }
+
+                            if self.dark_shading {
+                                ui.label(None,"Wall Darkness");
+                                ui.slider(hash!(), "[1.0 .. 25]", 1.0f32..25f32, &mut self.wall_shading_multiplier);
+                                ui.label(None,"Floor Darkness");
+                                ui.slider(hash!(), "[0.05 .. 1.0]", 0.05f32..1.0f32, &mut self.floor_shading_multiplier);
+                                ui.label(None,"Ceil Darkness");
+                                ui.slider(hash!(), "[0.05 .. 1.0]", 0.05f32..1.0f32, &mut self.ceil_shading_multiplier);
+                            }
+                        });           
+                        
+                        ui.tree_node(hash!(), "Player", |ui| {
+                            ui.label(None, "Todo :)")
+                        });                  
+                    });
+            }
+            
             set_default_camera();
-            gl_use_material(self.material);
+            if self.shaders { 
+                gl_use_material(self.CRT_material); 
+            }
             draw_texture_ex(
                 self.render_target.texture,
                 0.,
@@ -99,8 +145,6 @@ pub mod display {
         varying vec2 uv;
 
         uniform sampler2D Texture;
-
-        // https://www.shadertoy.com/view/XtlSD7
 
         vec2 CRTCurveUV(vec2 uv)
         {
