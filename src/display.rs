@@ -1,29 +1,22 @@
 pub mod display {
     use macroquad::prelude::*;
-    use crate::player::player::Player;
-    use crate::raycast::raycast::Ray;
     use macroquad::ui::{
         hash, root_ui,
-        widgets::{self, Group},
-        Drag, Ui,
+        widgets::{self},
     };
+    use crate::map::world::*;
 
     /* 
         Display settings, UI and Shaders
-
-        Todo add UI dropdown to change resolutions
-        256×224     //  PSX
-        640x480     // 	480p
-        1280x720    //  720p
-        1920x1080   //  1080p
     */
-    pub struct Display {
+    pub struct Settings {
         pub render_target: RenderTarget,
-        pub CRT_material: Material,
+        pub crt_material: Material,
         pub camera: Camera2D,
         pub width: f32,
         pub height: f32,
         pub half: f32,
+        pub num_textures: usize,
         // Settings
         pub settings: bool, 
         pub shaders: bool,   
@@ -34,24 +27,30 @@ pub mod display {
         pub wall_shading_multiplier: f32, 
         pub floor_shading_multiplier: f32, 
         pub ceil_shading_multiplier: f32, 
+        pub floor_texture: usize,
+        pub ceil_texture: usize,
+        pub resolution_x: f32,
+        pub resolution_y: f32,
+        pub move_speed: f32,
+        pub rot_speed: f32,    
     }
 
-    impl Display {
-        pub fn new() -> Display {
+    impl Settings {
+        pub fn new(num_textures: usize) -> Settings {
             let render_target = render_target(640, 480); 
-            let CRT_material = load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
-            
+            let crt_material = load_material(CRT_VERTEX_SHADER, CRT_FRAGMENT_SHADER, Default::default()).unwrap();
             let mut camera = Camera2D::from_display_rect(Rect::new(0., 0., screen_width(), screen_height()));
             camera.render_target = Some(render_target);
 
-            Display { 
+            Settings { 
                 render_target: render_target, 
-                CRT_material: CRT_material,
+                crt_material: crt_material,
                 camera: camera,
                 width: screen_width(),
                 height: screen_height(),
                 half: screen_height() / 2.0,
-
+                num_textures: num_textures,
+                // Settings
                 settings: false,
                 shaders: false,
                 nightvision: false,
@@ -61,9 +60,20 @@ pub mod display {
                 wall_shading_multiplier: 2.0,
                 floor_shading_multiplier: 0.08,
                 ceil_shading_multiplier: 0.1,
+                floor_texture: 1,
+                ceil_texture: 2,
+                resolution_x: 640.0,
+                resolution_y: 480.0,
+                // Player settings
+                move_speed: 4.0,    
+                rot_speed: 3.0,   
             }
         }
 
+        pub fn change_resolution(&mut self) {
+            self.render_target = render_target(self.resolution_x as u32, self.resolution_y as u32); 
+            self.camera.render_target = Some(self.render_target);
+        }
         pub fn draw_ui(&mut self) {
             if self.settings {
                 draw_text(
@@ -74,53 +84,67 @@ pub mod display {
                     GREEN,
                 );
 
-                widgets::Window::new(hash!(), vec2(20., 70.), vec2(300., 300.))
+                widgets::Window::new(hash!(), vec2(20., 70.), vec2(400., 300.))
                     .label("Settings")
                     .ui(&mut *root_ui(), |ui| {
                         ui.tree_node(hash!(), "Textures", |ui| {
-                            if ui.button(None, "Shaders") {
-                                self.shaders = !self.shaders;
+                            ui.checkbox(hash!(), "Shaders",&mut self.shaders);
+                            ui.separator();
+                            ui.checkbox(hash!(), "Nightvision",&mut self.nightvision);
+                            ui.separator();
+                            ui.checkbox(hash!(), "Textured Floors",&mut self.fast_floors);
+                            if !self.fast_floors {
+                                ui.label(None, "Ceiling Texture");
+                                for i in 0..self.num_textures {
+                                    if ui.button(None, format!("{}", i)) {
+                                        self.ceil_texture = i;
+                                    }
+                                    ui.same_line(0.);
+                                }
+                                ui.separator();
+                                ui.label(None, "Floor Texture");
+                                for i in 0..self.num_textures {
+                                    if ui.button(None, format!("{}", i)) {
+                                        self.floor_texture = i;
+                                    }
+                                    ui.same_line(0.);
+                                }
                             }
                             ui.separator();
-
-                            if ui.button(None, "Nightvision") {
-                                self.nightvision = !self.nightvision;
-                            }
+                            ui.checkbox(hash!(), "Shadows",&mut self.shadows);
                             ui.separator();
-
-                            if ui.button(None, "Textured Floors") {
-                                self.fast_floors = !self.fast_floors;
-                            }
-                            ui.separator();
-
-                            if ui.button(None, "Shadows") {
-                                self.shadows = !self.shadows;
-                            }
-                            ui.separator();
-                            
-                            if ui.button(None, "Darkness Shading") {
-                                self.dark_shading = !self.dark_shading;
-                            }
-
+                            ui.checkbox(hash!(), "Darkness Shading",&mut self.dark_shading);
                             if self.dark_shading {
                                 ui.label(None,"Wall Darkness");
-                                ui.slider(hash!(), "[1.0 .. 25]", 1.0f32..25f32, &mut self.wall_shading_multiplier);
+                                ui.slider(hash!(), "[1.0 .. 25.0]", 1.0f32..25.0f32, &mut self.wall_shading_multiplier);
                                 ui.label(None,"Floor Darkness");
                                 ui.slider(hash!(), "[0.05 .. 1.0]", 0.05f32..1.0f32, &mut self.floor_shading_multiplier);
                                 ui.label(None,"Ceil Darkness");
                                 ui.slider(hash!(), "[0.05 .. 1.0]", 0.05f32..1.0f32, &mut self.ceil_shading_multiplier);
                             }
+                            ui.separator();
+                            ui.label(None,"Resolution x");
+                            ui.slider(hash!(), "", 10.0f32..640.0f32, &mut self.resolution_x);
+                            ui.label(None,"Resolution y");
+                            ui.slider(hash!(), "", 10.0f32..480.0f32, &mut self.resolution_y);
+                            if ui.button(None, format!("set target resolution: {}x{}", self.resolution_x as u32, self.resolution_y as u32)) {
+                                self.change_resolution();
+                            }
                         });           
-                        
+                        ui.separator();
                         ui.tree_node(hash!(), "Player", |ui| {
-                            ui.label(None, "Todo :)")
-                        });                  
+                            ui.label(None,"Movement Speed");
+                            ui.slider(hash!(), "[1.0 .. 10.0]", 1.0f32..10.0f32, &mut self.move_speed);
+                            ui.label(None,"Rotate Speed");
+                            ui.slider(hash!(), "[1.0 .. 10.0]", 1.0f32..10.0f32, &mut self.rot_speed);
+                        });     
+                        ui.separator();             
                     });
             }
-            
+
             set_default_camera();
             if self.shaders { 
-                gl_use_material(self.CRT_material); 
+                gl_use_material(self.crt_material); 
             }
             draw_texture_ex(
                 self.render_target.texture,

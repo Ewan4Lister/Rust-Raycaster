@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 use map::world::World;
 use player::player::Player;
-use display::display::Display;
+use display::display::Settings;
 
 mod map;
 mod player;
@@ -26,14 +26,14 @@ fn conf() -> Conf {
 #[macroquad::main(conf)]
 async fn main() {
     let world: World = World::new().await;
-    let mut display: Display = Display::new();
-    let mut player: Player = Player::new(world, display);
+    let display_settings: Settings = Settings::new(world.textures.len());
+    let mut player: Player = Player::new(world, display_settings);
     
     loop {
         if is_key_pressed(KeyCode::Escape) {
             break;
         }
-        set_camera(&player.display.camera);
+        set_camera(&player.ds.camera);
 
         /* 
             Drawing textured floors is super slow.
@@ -44,7 +44,7 @@ async fn main() {
         player.draw_sprites();
         player.raycast();   // Walls are drawn here
         player.movement();  // Get player input
-        player.display.draw_ui();
+        player.ds.draw_ui();
         next_frame().await
     }
 }
