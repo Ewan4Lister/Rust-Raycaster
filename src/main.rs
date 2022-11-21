@@ -40,9 +40,10 @@ async fn main() {
             I did have a super cool fast method using from_rgba8, but as the drop implementation for the texture
             doesn't deallocate memory, it crashes. Will fix later, using slow method for now.
         */
-        player.draw_floor();    
-        player.draw_sprites();
-        player.raycast();   // Walls are drawn here
+        if player.ds.draw_floors { player.draw_floor(); }
+        if player.ds.draw_walls { player.raycast(); } // Walls are drawn here
+        if player.ds.draw_sprites { player.draw_sprites(); }
+        
         player.movement();  // Get player input
         player.ds.draw_ui();
         next_frame().await

@@ -4,7 +4,6 @@ pub mod display {
         hash, root_ui,
         widgets::{self},
     };
-    use crate::map::world::*;
 
     /* 
         Display settings, UI and Shaders
@@ -15,15 +14,20 @@ pub mod display {
         pub camera: Camera2D,
         pub width: f32,
         pub height: f32,
-        pub half: f32,
+        pub half_height: f32,
+        pub half_width: f32,
         pub num_textures: usize,
         // Settings
         pub settings: bool, 
         pub shaders: bool,   
+        pub draw_sprites: bool,   
+        pub draw_walls: bool,   
+        pub draw_floors: bool,    
         pub nightvision: bool,   
         pub fast_floors: bool,
         pub shadows: bool,
         pub dark_shading: bool, 
+        pub sprite_shading_multiplier: f32, 
         pub wall_shading_multiplier: f32, 
         pub floor_shading_multiplier: f32, 
         pub ceil_shading_multiplier: f32, 
@@ -48,15 +52,20 @@ pub mod display {
                 camera: camera,
                 width: screen_width(),
                 height: screen_height(),
-                half: screen_height() / 2.0,
+                half_height: screen_height() / 2.0,
+                half_width: screen_width() / 2.0,
                 num_textures: num_textures,
                 // Settings
                 settings: false,
                 shaders: false,
+                draw_sprites: true,
+                draw_walls: true,
+                draw_floors: true,
                 nightvision: false,
                 fast_floors: false,
                 shadows: true,
                 dark_shading: false,
+                sprite_shading_multiplier: 0.5,
                 wall_shading_multiplier: 2.0,
                 floor_shading_multiplier: 0.08,
                 ceil_shading_multiplier: 0.1,
@@ -116,11 +125,13 @@ pub mod display {
                             ui.checkbox(hash!(), "Darkness Shading",&mut self.dark_shading);
                             if self.dark_shading {
                                 ui.label(None,"Wall Darkness");
-                                ui.slider(hash!(), "[1.0 .. 25.0]", 1.0f32..25.0f32, &mut self.wall_shading_multiplier);
+                                ui.slider(hash!(), "[1.0 .. 25.0] ", 1.0f32..25.0f32, &mut self.wall_shading_multiplier);
+                                ui.label(None,"Sprite Darkness");
+                                ui.slider(hash!(), "[0.2 .. 5.0] ", 0.2f32..5.0f32, &mut self.sprite_shading_multiplier);
                                 ui.label(None,"Floor Darkness");
-                                ui.slider(hash!(), "[0.05 .. 1.0]", 0.05f32..1.0f32, &mut self.floor_shading_multiplier);
+                                ui.slider(hash!(), "[0.05 .. 1.0] ", 0.05f32..1.0f32, &mut self.floor_shading_multiplier);
                                 ui.label(None,"Ceil Darkness");
-                                ui.slider(hash!(), "[0.05 .. 1.0]", 0.05f32..1.0f32, &mut self.ceil_shading_multiplier);
+                                ui.slider(hash!(), "[0.05 .. 1.0] ", 0.05f32..1.0f32, &mut self.ceil_shading_multiplier);
                             }
                             ui.separator();
                             ui.label(None,"Resolution x");
@@ -134,9 +145,17 @@ pub mod display {
                         ui.separator();
                         ui.tree_node(hash!(), "Player", |ui| {
                             ui.label(None,"Movement Speed");
-                            ui.slider(hash!(), "[1.0 .. 10.0]", 1.0f32..10.0f32, &mut self.move_speed);
+                            ui.slider(hash!(), "[1.0 .. 10.0] ", 1.0f32..10.0f32, &mut self.move_speed);
                             ui.label(None,"Rotate Speed");
-                            ui.slider(hash!(), "[1.0 .. 10.0]", 1.0f32..10.0f32, &mut self.rot_speed);
+                            ui.slider(hash!(), "[1.0 .. 10.0] ", 1.0f32..10.0f32, &mut self.rot_speed);
+                            ui.separator();
+                            ui.label(None, "WARNING these can cause trippy effects");
+                            ui.checkbox(hash!(), "Draw Walls",&mut self.draw_walls);
+                            ui.separator();
+                            ui.checkbox(hash!(), "Draw Floors",&mut self.draw_floors);
+                            ui.separator();
+                            ui.checkbox(hash!(), "Draw Sprites",&mut self.draw_sprites);
+                            ui.separator();
                         });     
                         ui.separator();             
                     });

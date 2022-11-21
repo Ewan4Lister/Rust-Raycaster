@@ -1,9 +1,11 @@
 pub mod world {
     use macroquad::prelude::*;
+
     pub struct Sprite {
         pub x: f32,
         pub y: f32,
-        pub texture: u32,
+        pub dist: f32,
+        pub texture: Texture2D,
     }
     pub struct Texture {
         pub texture: Texture2D,
@@ -61,9 +63,37 @@ pub mod world {
                 9,9,9,9,9,9,9,9,2,1,1,1,1,1,1,4,4,4,4,4,4,4,4,4
             ];
 
+            let sprites: Vec<Texture2D> = vec![
+                load_texture("src/assets/barrel.png").await.unwrap(), 
+                load_texture("src/assets/pillar.png").await.unwrap(), 
+                load_texture("src/assets/greenlight.png").await.unwrap(), 
+                load_texture("src/assets/jerma.png").await.unwrap(), 
+            ];
+
             let sprite_map: Vec<Sprite> = vec![
-                Sprite {x: 20.5,    y: 11.5,    texture: 10},
-                Sprite {x: 18.5,    y: 4.5,     texture: 10},
+                Sprite {x: 13.5,    y: 15.5,    texture: sprites[3],     dist: 0.0},
+
+                Sprite {x: 20.5,    y: 11.5,    texture: sprites[2],     dist: 0.0},
+                Sprite {x: 18.5,    y: 4.5,     texture: sprites[2],     dist: 0.0},
+                Sprite {x: 10.0,    y: 4.5,     texture: sprites[2],     dist: 0.0},
+                Sprite {x: 10.0,    y: 12.5,    texture: sprites[2],     dist: 0.0},
+                Sprite {x: 3.5,     y: 6.5,     texture: sprites[2],     dist: 0.0},
+                Sprite {x: 3.5,     y: 20.5,    texture: sprites[2],     dist: 0.0},
+                Sprite {x: 3.5,     y: 14.5,    texture: sprites[2],     dist: 0.0},
+                Sprite {x: 14.5,    y: 20.5,    texture: sprites[2],     dist: 0.0},
+
+                Sprite {x: 18.5,    y: 10.5,    texture: sprites[1],     dist: 0.0},
+                Sprite {x: 18.5,    y: 11.5,    texture: sprites[1],     dist: 0.0},
+                Sprite {x: 18.5,    y: 12.5,    texture: sprites[1],     dist: 0.0},
+
+                Sprite {x: 21.5,    y: 1.5,     texture: sprites[0],     dist: 0.0},
+                Sprite {x: 15.5,    y: 1.5,     texture: sprites[0],     dist: 0.0},
+                Sprite {x: 16.0,    y: 1.8,     texture: sprites[0],     dist: 0.0},
+                Sprite {x: 16.2,    y: 1.2,     texture: sprites[0],     dist: 0.0},
+                Sprite {x: 3.5,     y: 2.5,     texture: sprites[0],     dist: 0.0},
+                Sprite {x: 9.5,     y: 15.5,    texture: sprites[0],     dist: 0.0},
+                Sprite {x: 10.0,    y: 15.1,    texture: sprites[0],     dist: 0.0},
+                Sprite {x: 10.5,    y: 15.8,    texture: sprites[0],     dist: 0.0},
             ];
 
             let textures_names: Vec<&str> = vec![
@@ -97,6 +127,7 @@ pub mod world {
             self.textures[(self.get(map.0, map.1) - 1) as usize].texture
         }
 
+        // Maybe combine these shading functions ?
         pub fn floor_shading(&self, mut color: Color, height: i32, dist: i32, multiplier: f32, dark_shading: bool) -> Color {
             if dark_shading { 
                 color.r /= (height - dist) as f32 * multiplier;
@@ -120,6 +151,18 @@ pub mod world {
                 if side { color.r /= 1.5; color.g /= 1.5; color.b /= 1.5; } 
             }
 
+            color
+        }
+
+        pub fn sprite_shading(&self, dist: f32, dark_shading: bool, shading_multiplier: f32) -> Color {
+            let mut color: Color = WHITE;
+
+            if dark_shading { 
+                color.r /= dist * shading_multiplier; 
+                color.g /= dist * shading_multiplier; 
+                color.b /= dist * shading_multiplier;
+            }
+            
             color
         }
     }
