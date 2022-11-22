@@ -7,6 +7,7 @@ pub mod display {
 
     /* 
         Display settings, UI and Shaders
+        Player settings aswell
     */
     pub struct Settings {
         pub render_target: RenderTarget,
@@ -24,7 +25,6 @@ pub mod display {
         pub draw_walls: bool,   
         pub draw_floors: bool,    
         pub nightvision: bool,   
-        pub fast_floors: bool,
         pub shadows: bool,
         pub dark_shading: bool, 
         pub sprite_shading_multiplier: f32, 
@@ -37,6 +37,10 @@ pub mod display {
         pub resolution_y: f32,
         pub move_speed: f32,
         pub rot_speed: f32,    
+        pub look_speed: f32,
+        pub headbob: bool, 
+        pub headbob_amount: f32,
+        pub headbob_speed: f32,
     }
 
     impl Settings {
@@ -62,7 +66,6 @@ pub mod display {
                 draw_walls: true,
                 draw_floors: true,
                 nightvision: false,
-                fast_floors: false,
                 shadows: true,
                 dark_shading: false,
                 sprite_shading_multiplier: 0.5,
@@ -75,7 +78,11 @@ pub mod display {
                 resolution_y: 480.0,
                 // Player settings
                 move_speed: 4.0,    
-                rot_speed: 3.0,   
+                rot_speed: 3.0,  
+                look_speed: 200.0,  
+                headbob: true, 
+                headbob_speed: 16.0,   
+                headbob_amount: 0.5,   
             }
         }
 
@@ -101,24 +108,22 @@ pub mod display {
                             ui.separator();
                             ui.checkbox(hash!(), "Nightvision",&mut self.nightvision);
                             ui.separator();
-                            ui.checkbox(hash!(), "Textured Floors",&mut self.fast_floors);
-                            if !self.fast_floors {
-                                ui.label(None, "Ceiling Texture");
-                                for i in 0..self.num_textures {
-                                    if ui.button(None, format!("{}", i)) {
-                                        self.ceil_texture = i;
-                                    }
-                                    ui.same_line(0.);
+                            ui.label(None, "Ceiling Texture");
+                            for i in 0..self.num_textures {
+                                if ui.button(None, format!("{}", i)) {
+                                    self.ceil_texture = i;
                                 }
-                                ui.separator();
-                                ui.label(None, "Floor Texture");
-                                for i in 0..self.num_textures {
-                                    if ui.button(None, format!("{}", i)) {
-                                        self.floor_texture = i;
-                                    }
-                                    ui.same_line(0.);
-                                }
+                                ui.same_line(0.);
                             }
+                            ui.separator();
+                            ui.label(None, "Floor Texture");
+                            for i in 0..self.num_textures {
+                                if ui.button(None, format!("{}", i)) {
+                                    self.floor_texture = i;
+                                }
+                                ui.same_line(0.);
+                            }
+                            
                             ui.separator();
                             ui.checkbox(hash!(), "Shadows",&mut self.shadows);
                             ui.separator();
@@ -148,6 +153,16 @@ pub mod display {
                             ui.slider(hash!(), "[1.0 .. 10.0] ", 1.0f32..10.0f32, &mut self.move_speed);
                             ui.label(None,"Rotate Speed");
                             ui.slider(hash!(), "[1.0 .. 10.0] ", 1.0f32..10.0f32, &mut self.rot_speed);
+                            ui.label(None,"Look Speed");
+                            ui.slider(hash!(), "[100.0 .. 300.0] ", 100.0f32..300.0f32, &mut self.look_speed);
+                            ui.separator();
+                            ui.checkbox(hash!(), "Headbob",&mut self.headbob);
+                            if self.headbob {
+                                ui.label(None,"Headbob Amount");
+                                ui.slider(hash!(), "[0.3 .. 5.0] ", 0.3f32..5.0f32, &mut self.headbob_amount);
+                                ui.label(None,"Headbob Speed");
+                                ui.slider(hash!(), "10.0 .. 30.0] ", 10.0f32..30.0f32, &mut self.headbob_speed);
+                            }
                             ui.separator();
                             ui.label(None, "WARNING these can cause trippy effects");
                             ui.checkbox(hash!(), "Draw Walls",&mut self.draw_walls);
@@ -180,6 +195,9 @@ pub mod display {
         }
     }
 
+
+    // Still learning how the hell this works 
+    // Using example code for now 
     const CRT_FRAGMENT_SHADER: &'static str = 
     r#"#version 100
         precision lowp float;

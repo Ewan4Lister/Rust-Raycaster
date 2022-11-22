@@ -4,6 +4,7 @@ pub mod player {
     use crate::display::display::Settings;
     use crate::map::world::World;
     use crate::raycast::raycast::Ray;
+    use core::f32::consts::PI;
 
     /* 
         Player settings, input and movement
@@ -13,11 +14,13 @@ pub mod player {
         pub texture: Texture2D,
     }
     pub struct Player {
-        pub pos: Vec2, // Start vector
+        pub pos: Vec3, // Start vector
         pub dir: Vec2, // Inital direction vector
         pub plane: Vec2, // Camera plane
         pub world: World, 
         pub ds: Settings, 
+        pub pitch: f32,
+        pub timer: f32,
         background: Background, 
         zbuffer: Vec<f32>, 
     }
@@ -34,54 +37,48 @@ pub mod player {
             let zbuffer = vec![0.0; display_settings.width as usize];
 
             Player { 
-                pos: vec2(22.0, 11.5),
+                pos: vec3(22.0, 11.5, 0.0),
                 dir: vec2(-1.0, 0.0),
                 plane: vec2(0.0, 0.66),
                 world: world,  
                 ds: display_settings,  
+                pitch: 0.0,
+                timer: 0.0,
                 zbuffer: zbuffer,
                 background: background,
             }
         }
 
         pub fn draw_floor(&mut self){      
-            let mut c: Color = WHITE;
-            if self.ds.fast_floors {
-                if self.ds.dark_shading {
-                    for y in self.ds.half_height as i32 + 1..self.ds.height as i32 {
-                        c = if self.ds.nightvision { GREEN } else { GRAY };
-                        c = self.world.floor_shading(c, (self.ds.height + 50.0) as i32, y, 0.09, self.ds.dark_shading); 
-                        draw_line(0.0, y as f32, self.ds.width, y as f32, 1.0, c);
+            let t_height = self.world.textures[self.ds.floor_texture].texture.height();
 
-                        c = if self.ds.nightvision { DARKGREEN } else { DARKGRAY };
-                        c = self.world.floor_shading(c, (self.ds.height + 30.0) as i32, y, 0.1, self.ds.dark_shading); 
-                        draw_line(0.0, (self.ds.height as i32 - y) as f32, self.ds.width, (self.ds.height as i32 - y) as f32, 1.0, c);
-                    }
-                }
-                else {
-                    draw_rectangle(0.0, 0.0, self.ds.width, self.ds.half_height , DARKGRAY);
-                    draw_rectangle(0.0, self.ds.half_height, self.ds.width, self.ds.half_height, GRAY);
-                }
-            }
-            else {
-                let t_height = self.world.textures[self.ds.floor_texture].texture.height();
+            for y in 0..self.ds.height as i32{
+                let is_floor = y > (self.ds.half_height + self.pitch) as i32;
+                let ray_dir_0: Vec2 = vec2(self.dir.x - self.plane.x, self.dir.y - self.plane.y);
+                let ray_dir_1: Vec2 = vec2(self.dir.x + self.plane.x, self.dir.y + self.plane.y);
 
-                for y in self.ds.half_height as i32 + 1..self.ds.height as i32 {
-                    let ray_dir_0: Vec2 = vec2(self.dir.x - self.plane.x, self.dir.y - self.plane.y);
-                    let ray_dir_1: Vec2 = vec2(self.dir.x + self.plane.x, self.dir.y + self.plane.y);
-                    let row_distance = (0.5 * self.ds.height) / (y - self.ds.half_height as i32) as f32;
+                let p = if is_floor 
+                        { y - self.ds.half_height as i32 - self.pitch as i32 }
+                else    { self.ds.half_height as i32 - y + self.pitch as i32 };
 
-                    let floor_step: Vec2 = vec2(
-                        row_distance * (ray_dir_1.x - ray_dir_0.x) / self.ds.width, 
-                        row_distance * (ray_dir_1.y - ray_dir_0.y) / self.ds.width
-                    );
-                    let mut floor: Vec2 = vec2(self.pos.x + row_distance * ray_dir_0.x, self.pos.y + row_distance * ray_dir_0.y);
+                let cam_z = if is_floor 
+                        { 0.5 * self.ds.height + self.pos.z }
+                else    { 0.5 * self.ds.height - self.pos.z };
+
+                let row_distance = cam_z / p as f32;
+                let floor_step: Vec2 = vec2(
+                    row_distance * (ray_dir_1.x - ray_dir_0.x) / self.ds.width, 
+                    row_distance * (ray_dir_1.y - ray_dir_0.y) / self.ds.width
+                );
+
+                let mut floor: Vec2 = vec2(self.pos.x + row_distance * ray_dir_0.x, self.pos.y + row_distance * ray_dir_0.y);
                 
-                    for x in 0..self.ds.width as u32 {
-                        let tx = (t_height * floor.x) as i32 & (t_height - 1.0) as i32;
-                        let ty = (t_height * floor.y) as i32 & (t_height - 1.0) as i32;
-                        floor.x += floor_step.x; floor.y += floor_step.y;
+                for x in 0..self.ds.width as u32 {
+                    let tx = (t_height * floor.x) as i32 & (t_height - 1.0) as i32;
+                    let ty = (t_height * floor.y) as i32 & (t_height - 1.0) as i32;
+                    floor.x += floor_step.x; floor.y += floor_step.y;
 
+                    if is_floor {
                         let mut floor_p: Color = self.world.textures[self.ds.floor_texture].texture_data[(t_height as i32 * tx + ty) as usize];  
                         if !self.ds.nightvision { 
                             floor_p = self.world.floor_shading(floor_p, 
@@ -92,7 +89,8 @@ pub mod player {
                             ); 
                         }
                         self.background.img.set_pixel(x as u32, y as u32, floor_p); 
-
+                    }
+                    else {
                         let mut ceil_p: Color = self.world.textures[self.ds.ceil_texture].texture_data[(t_height as i32 * tx + ty) as usize];  
                         if !self.ds.nightvision { 
                             ceil_p = self.world.floor_shading(ceil_p, 
@@ -102,13 +100,13 @@ pub mod player {
                                 self.ds.dark_shading
                             ); 
                         }
-                        self.background.img.set_pixel(x as u32, (self.ds.height as i32 - y - 1) as u32, ceil_p); 
+                        self.background.img.set_pixel(x as u32, y as u32, ceil_p); 
                     }
                 }
-                if self.ds.nightvision { c = GREEN };
-                self.background.texture.update(&self.background.img); 
-                draw_texture(self.background.texture, 0., 0., c);
             }
+            let c: Color = if self.ds.nightvision { GREEN } else { WHITE };            
+            self.background.texture.update(&self.background.img); 
+            draw_texture(self.background.texture, 0., 0., c);
         }
 
         pub fn draw_walls(&mut self, ray: Ray, x: f32) {
@@ -125,7 +123,7 @@ pub mod player {
             let t: Texture2D = self.world.texture(ray.map);
         
             let line_height: f32 = self.ds.height / ray.perp_wall_dist;
-            let draw_start: f32 = -line_height / 2.0 + self.ds.height / 2.0;
+            let draw_start: f32 = -line_height / 2.0 + self.pitch + self.ds.half_height + (self.pos.z / ray.perp_wall_dist);
             self.zbuffer[x as usize] = ray.perp_wall_dist; // Store dist of wall strip in buffer for spritecast
 
             let mut wall_x: f32;
@@ -183,12 +181,13 @@ pub mod player {
                     inv_det * (-self.plane.y * sprite.x + self.plane.x * sprite.y)
                 );
 
+                let v_move_screen = (self.pitch + self.pos.z / transform.y) as i32;
                 let sprite_screen: i32 = (self.ds.half_width * (1.0 + transform.x / transform.y)) as i32;
                 let sprite_height: i32 = (self.ds.height / transform.y) as i32;
                 let half_sprite_height: (i32, i32) = (-sprite_height / 2, sprite_height / 2);
 
-                let draw_start_y: i32 = half_sprite_height.0 + self.ds.half_height as i32;
-                let draw_end_y: i32 = half_sprite_height.1 + self.ds.half_height as i32;
+                let draw_start_y: i32 = half_sprite_height.0 + self.ds.half_height as i32 + v_move_screen;
+                let draw_end_y: i32 = half_sprite_height.1 + self.ds.half_height as i32 + v_move_screen;
                 let draw_start_x: i32 = half_sprite_height.0 + sprite_screen;
                 let draw_end_x: i32 = half_sprite_height.1 + sprite_screen;
 
@@ -213,7 +212,7 @@ pub mod player {
             }
         }
 
-        pub fn raycast(&mut self) {  // Add more variables 
+        pub fn raycast(&mut self) { 
             for x in 0..self.ds.width as u32 {
                 let mut ray:Ray = Ray::new(x as f32, self);
                 ray.dda(self);
@@ -221,13 +220,21 @@ pub mod player {
             }
         }
 
+        pub fn headbob(&mut self) { 
+            self.timer += get_frame_time() * self.ds.headbob_speed;
+            self.pos.z += self.timer.sin() * self.ds.headbob_amount;
+            if self.timer > PI * 2.0 { self.timer = 0.0; }
+        }
+
         pub fn movement(&mut self) {
             if is_key_down(KeyCode::W) {
                 self.move_forward();
+                if self.ds.headbob { self.headbob(); }
             }
     
             if is_key_down(KeyCode::S) {
                 self.move_down();
+                if self.ds.headbob { self.headbob(); }
             }
     
             if is_key_down(KeyCode::D) {
@@ -237,10 +244,31 @@ pub mod player {
             if is_key_down(KeyCode::A) {
                 self.move_left();
             }
-    
+
+            if is_key_down(KeyCode::Q) {
+                self.pitch += 3.0 * get_frame_time() * self.ds.look_speed;
+                if self.pitch > 500.0 { self.pitch = 500.0 }
+            }
+
+            if is_key_down(KeyCode::E) {
+                self.pitch -= 3.0 * get_frame_time() * self.ds.look_speed;
+                if self.pitch < -500.0 { self.pitch = -500.0 }
+            }
+
+            if is_key_down(KeyCode::Z) {
+                self.pos.z += 3.0 * get_frame_time() * self.ds.look_speed;
+            }
+
+            if is_key_down(KeyCode::X) {
+                self.pos.z -= 3.0 * get_frame_time() * self.ds.look_speed;
+            }
+
             if is_key_pressed(KeyCode::Tab) {
                 self.ds.settings = !self.ds.settings;
             }
+
+            if self.pos.z > 200.0 { self.pos.z = 200.0 }
+            if self.pos.z < -200.0 { self.pos.z = -200.0 }
         }
 
         fn move_forward(&mut self) {
