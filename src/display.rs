@@ -69,7 +69,7 @@ pub mod display {
                 shadows: true,
                 dark_shading: false,
                 sprite_shading_multiplier: 0.5,
-                wall_shading_multiplier: 2.0,
+                wall_shading_multiplier: 2.5,
                 floor_shading_multiplier: 0.08,
                 ceil_shading_multiplier: 0.1,
                 floor_texture: 1,

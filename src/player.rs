@@ -1,10 +1,10 @@
 pub mod player {
     use macroquad::prelude::*;
     use macroquad::time::get_frame_time;
-    use crate::display::display::Settings;
-    use crate::map::world::World;
-    use crate::raycast::raycast::Ray;
     use core::f32::consts::PI;
+    use crate::display::display::Settings;
+    use crate::map::world::{World, Entity};
+    use crate::raycast::raycast::Ray;
 
     /* 
         Player settings, input and movement
@@ -17,12 +17,12 @@ pub mod player {
         pub pos: Vec3, // Start vector
         pub dir: Vec2, // Inital direction vector
         pub plane: Vec2, // Camera plane
-        pub world: World, 
-        pub ds: Settings, 
-        pub pitch: f32,
-        pub timer: f32,
-        background: Background, 
-        zbuffer: Vec<f32>, 
+        pub world: World, // Map
+        pub ds: Settings, // Display settings
+        pub pitch: f32, // Cam pitch 
+        timer: f32, // Timer 
+        background: Background, // Background image
+        zbuffer: Vec<f32>,  // Wall Distance buffer
     }
     
     impl Player {
@@ -226,6 +226,37 @@ pub mod player {
             if self.timer > PI * 2.0 { self.timer = 0.0; }
         }
 
+        pub fn interact(&mut self) { 
+            // Calc whats in front of player 
+            let x = (self.pos.x + self.dir.x * 1.0) as i32;
+            let y = (self.pos.y + self.dir.y * 1.0) as i32;
+            let mut change: Option<(Vec3, (u32, u32), (i32, i32))> = None;
+
+            for entity in &self.world.entities { 
+                match *entity {
+                    Entity::Door(texture, coords) 
+                    if coords == (x, y) => { 
+                        change = Some((self.pos, texture, coords));
+                        // Play door sounds
+                    }
+
+                    Entity::Power(texture, coords) // Turn on or off power
+                    if coords == (x, y) => { 
+                        self.ds.dark_shading = !self.ds.dark_shading;
+                        change = Some((self.pos, texture, coords));
+                        // Play power sounds
+                    }
+
+                    Entity::Door(..) | Entity::Power(..) => ()
+                }
+            }
+
+            match change { // If texture needs to change
+                Some(i) => { self.world.change(i.0, i.1, i.2) },
+                None => (), // Play failed interact sound
+            }
+        } 
+
         pub fn movement(&mut self) {
             if is_key_down(KeyCode::W) {
                 self.move_forward();
@@ -237,13 +268,8 @@ pub mod player {
                 if self.ds.headbob { self.headbob(); }
             }
     
-            if is_key_down(KeyCode::D) {
-                self.move_right();
-            }
-    
-            if is_key_down(KeyCode::A) {
-                self.move_left();
-            }
+            if is_key_down(KeyCode::D) { self.move_right(); }
+            if is_key_down(KeyCode::A) { self.move_left(); }
 
             if is_key_down(KeyCode::Q) {
                 self.pitch += 3.0 * get_frame_time() * self.ds.look_speed;
@@ -263,10 +289,10 @@ pub mod player {
                 self.pos.z -= 3.0 * get_frame_time() * self.ds.look_speed;
             }
 
-            if is_key_pressed(KeyCode::Tab) {
-                self.ds.settings = !self.ds.settings;
+            if is_key_pressed(KeyCode::F) { 
+                self.interact(); 
             }
-
+            if is_key_pressed(KeyCode::Tab) { self.ds.settings = !self.ds.settings; }
             if self.pos.z > 200.0 { self.pos.z = 200.0 }
             if self.pos.z < -200.0 { self.pos.z = -200.0 }
         }
